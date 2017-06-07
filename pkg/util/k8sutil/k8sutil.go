@@ -201,7 +201,7 @@ func addOwnerRefToObject(o metav1.Object, r metav1.OwnerReference) {
 
 func NewEtcdPod(m *etcdutil.Member, initialCluster []string, clusterName, state, token string, cs spec.ClusterSpec, owner metav1.OwnerReference) *v1.Pod {
 	commands := fmt.Sprintf("/usr/local/bin/etcd --data-dir=%s --name=%s --initial-advertise-peer-urls=%s "+
-		"--listen-peer-urls=%s --auto-compaction=1 --listen-client-urls=%s --advertise-client-urls=%s "+
+		"--listen-peer-urls=%s --listen-client-urls=%s --advertise-client-urls=%s "+
 		"--initial-cluster=%s --initial-cluster-state=%s",
 		dataDir, m.Name, m.PeerURL(), m.ListenPeerURL(), m.ListenClientURL(), m.ClientAddr(), strings.Join(initialCluster, ","), state)
 	if m.SecurePeer {
@@ -220,7 +220,13 @@ func NewEtcdPod(m *etcdutil.Member, initialCluster []string, clusterName, state,
 		"etcd_cluster": clusterName,
 	}
 
-	container := containerWithLivenessProbe(etcdContainer(commands, cs.Version, nil), etcdLivenessProbe(cs.TLS.IsSecureClient()))
+	env := []v1.EnvVar{
+		{
+			Name:  "ETCD_AUTO_COMPACTION_RETENTION",
+			Value: "1",
+		},
+	}
+	container := containerWithLivenessProbe(etcdContainer(commands, cs.Version, env), etcdLivenessProbe(cs.TLS.IsSecureClient()))
 	if cs.Pod != nil {
 		container = containerWithRequirements(container, cs.Pod.Resources)
 	}
